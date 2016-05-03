@@ -1,0 +1,88 @@
+#!/usr/bin/perl
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#    Jason C. Rochon                                                                  #
+#    Apr 24, 2014                                                                     #
+#                                                                                     #
+#    Notes:                                                                           #
+#                                                                                     #
+#        1.) cron job: weekly                                                         #
+#            A.) gateway-1: private                                                   #
+#            B.) gateway-2: public                                                    #
+#                                                                                     #
+#        2.) Searches for XP machines via nmap and reports:                           #
+#            A.) Hostname (IP)                                                        #
+#            B.) MAC                                                                  #
+#            C.) OS                                                                   #
+#                                                                                     #
+#     To Do:                                                                          #
+#                                                                                     #
+#        1.) Import perl code for scanning available IPs:                             #
+#            A.) scan-public.pl                                                       #
+#            B.) scan-private.pl                                                      #
+#                                                                                     #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+#use strict;
+#use warnings;
+#use diagnostics;
+use Data::Dumper qw(Dumper);
+use Nmap::Parser;
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Declare Vars                                                                        #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+our (@zones, @newzone);
+my $np = new Nmap::Parser;
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Parse File                                                                            #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+ 
+my $infile = $ARGV[0];
+$np->parsefile($infile);
+
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Session Data                                                                          #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+ 
+my $si = $np->get_session();
+print "Windows XP Machines Online between ".$si->start_str()." and ".$si->time_str()."\n\n";
+
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Find XP Machines                                                                      #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+ 
+for my $host ($np->all_hosts) {
+	my $os = $host->os_sig;
+        
+	if ($osfamily="Windows" and (($os->osgen ne "2003") or (osgen ne "2008") or (osgen ne "2008") or (osgen ne "2008"))) {
+	    my $zone = ($host->hostname."\t"
+	               .$host->ipv4_addr."\t"
+	               .$host->mac_addr."\t"
+	               .$os->name."\t"
+	               .$os->osgen."\n");
+	##        print Dumper($zone);
+	    push (@zones, $zone);
+	}
+}
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Print Sorted File                                                                   #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+@newzone = sort { 
+        ($a =~ /.*\.(.*\.uic\.edu) *./)[0] cmp 
+        ($b =~ /.*\.(.*\.uic\.edu) *./)[0] 
+} @zones;
+
+print @newzone;
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Exit Routine                                                                        #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+print "\n\n";
+exit;

@@ -1,0 +1,192 @@
+#!/usr/bin/perl
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#    Jason C. Rochon                                                                  #
+#    Jul 18, 2014                                                                     #
+#                                                                                     #
+#    Notes:                                                                           #
+#                                                                                     #
+#        1.) cron job: weekly                                                         #
+#            A.) gateway-1: private                                                   #
+#            B.) gateway-2: public                                                    #
+#                                                                                     #
+#        2.) Searches for XP machines via nmap and reports:                           #
+#            A.) Hostname (IP)                                                        #
+#            B.) MAC                                                                  #
+#            C.) OS                                                                   #
+#                                                                                     #
+#     To Do:                                                                          #
+#                                                                                     #
+#        1.) Import perl code for scanning available IPs:                             #
+#            A.) scan-public.pl                                                       #
+#            B.) scan-private.pl                                                      #
+#                                                                                     #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+#use strict;
+#use warnings;
+#use diagnostics;
+#use Data::Dumper qw(Dumper);
+use Nmap::Parser;
+
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#    Declare Vars                                                                       #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+our ( $zone, @zones, @newzones, $oldzone, @cc, $cc, $z );
+my $np = new Nmap::Parser;
+
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Parse File                                                                            #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+my $infile = $ARGV[0];
+$np->parsefile($infile);
+
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Session Data                                                                          #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+my $si = $np->get_session();
+print "OpenSSL Heartbleed Vulnerable (CVE-2014-0160) and SSLv3 POODLE Vulnerable (CVE-2014-3566)\n"
+    . "Machines Online between " . $si->start_str() . " and " . $si->time_str();
+
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Vulnerability Data                                                                    #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+for my $host ( $np->all_hosts() ) {
+
+        my @vulnports = qw( 21 25 110 143 443 465 563 587 636 989 990 991 992 993 994 995 5061 5222
+                            7801 7802 7900 7901 7902 7903 7904 7905 7906 7907 7908 7909 7910 7911 7912
+                            7913 7914 7915 7916 7917 7918 7919 7920 );
+
+    foreach $vport (@vulnports) {
+
+        my $svc_ssl_hb = $host->tcp_service($vport)->scripts('ssl-heartbleed');
+        my $svc_ssl_pd = $host->tcp_service($vport)->scripts('ssl-poodle');
+
+        if ( defined $host->tcp_port_state($vport) and defined $svc_ssl_hb->{output} ) {
+            if ( ( $host->tcp_port_state($vport) eq "open" ) and ( $svc_ssl_hb->{output} =~ /State: VULNERABLE/ ) ) {
+                my $zone = ( $host->hostname() 
+                             . "\t" . $host->ipv4_addr() 
+                             . "\t" . $host->mac_addr() 
+                             . "\tPort $vport: OpenSSL HeartBleed Vulnerable\n" );
+
+				push( @zones, $zone );
+            }
+        }
+
+
+        if ( defined $host->tcp_port_state($vport) and defined $svc_ssl_pd->{output} ) {
+            if ( ( $host->tcp_port_state($vport) eq "open" ) and ( $svc_ssl_pd->{output} =~ /State: VULNERABLE/ ) ) {
+                my $zone = ( $host->hostname() 
+                             . "\t" . $host->ipv4_addr() 
+                             . "\t" . $host->mac_addr() 
+                             . "\tPort $vport: SSLv3 POODLE Vulnerable\n" );
+
+				push( @zones, $zone );
+            }
+        }
+    }
+}
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Print Sorted File                                                                   #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+@newzones = sort { ( $a =~ /.*\.(.*\.uic\.edu) *./ )[0] cmp( $b =~ /.*\.(.*\.uic\.edu) *./ )[0] } @zones;
+
+&print_netsecs(@newzones);
+
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Priming DB2 Access                                                                  #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+my %pbopt;
+use UIC::Paw ();
+BEGIN {
+%pbopt = (	DB2 => {
+		TBCREATOR => 'pb',
+		DATABASE  => 'ACCCDATA',
+		USER      => 'webpbrw',
+		PASSWD    => UIC::Paw::get('webpbrw@rabbit'),
+	});
+}
+use UIC::MQ::BasicClients;
+use PBUIC ( %pbopt );
+use UIC::PW ( %pbopt );
+#use PBUIC ( DB2 => { TBCREATOR => "pb" } );
+#require UIC::PW;
+#UIC::PW->import( DB2 => { TBCREATOR => 'pw', } );
+#
+#use UIC::Paw;
+#use PBUIC ( DB2 => { TBCREATOR => "pb" } );
+#
+#require UIC::PW;
+#UIC::PW->import( DB2 => { TBCREATOR => 'pw', } );
+#
+#require PBUIC;
+#PBUIC->import(
+#	DB2 => {
+#		TBCREATOR => 'pb',
+#		DATABASE  => 'ACCCDATA',
+#		USER      => 'webpbrw',
+#		PASSWD    => UIC::Paw::get('webpbrw@rabbit'),
+#	},
+#);
+
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Query Who To CC                                                                     #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+sub who_cc {
+	$z = shift;
+
+	my $ps = PersonSet->fill(
+		-LIAISON_TYPE   => 'NETSEC',
+		-ZONE_2_LIAISON => $z,
+	);
+
+	foreach my $p ( $ps->getPersistents ) {
+		push @$cc, $p->pnetid . '@uic.edu';
+	}
+	$cc = join( ';', @$cc );
+	return ($cc);
+}
+
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Print Netsecs                                                                       #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+sub print_netsecs {
+
+	$oldzone = undef;
+	foreach (@newzones) {
+		$zone = $1 if ( $_ =~ /.*\.(.*\.uic\.edu).*/ );
+		my $currzone = $zone;
+
+		print "\n\nZone: $zone" unless ( $oldzone eq $currzone );
+		print "\nNetsec: " . &who_cc($zone) unless ( $oldzone eq $currzone );
+
+		print "\n$&";    # all info
+
+		$oldzone = $currzone;
+	}
+	print "\n";
+}
+
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Exit Routine                                                                        #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+print "\n\n";
+exit;

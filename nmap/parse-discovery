@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#                                                                                       #
+#   Jason C. Rochon                                                                     #
+#   Mar 13, 2015                                                                        #
+#                                                                                       #
+#    Notes:                                                                             #
+#        1.) cron job: weekly from gateway-2                                            #
+#                                                                                       #
+#        2.) Searches for vulnerable machines via nmap and reports:                     #
+#              A.) Hostname                                                             #
+#              B.) IP                                                                   #
+#              C.) MAC                                                                  #
+#              D.) Vulnerability                                                        #
+#                                                                                       #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+#use strict;
+#use warnings;
+#use Data::Dumper::Simple;
+
+use Getopt::Std;
+use Nmap::Parser;
+
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Parse File                                                                          #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+my $np     = new Nmap::Parser;
+my $infile = $ARGV[0];
+$np->parsefile($infile);
+
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Discovery Data                                                                      #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+print "\n + + + Discovery Data + + +\n";
+for my $host ( $np->all_hosts )
+{
+    printf "%-55s %-15s %17s\n",$host->hostname,$host->ipv4_addr,$host->mac_addr;
+}
+
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Exit Routine                                                                        #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+print "\n + + + End of Discovery Data + + +\n";
+exit;
+

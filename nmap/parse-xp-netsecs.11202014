@@ -1,0 +1,180 @@
+#!/usr/bin/perl
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#    Jason C. Rochon                                                                  #
+#    Apr 24, 2014                                                                     #
+#                                                                                     #
+#    Notes:                                                                           #
+#                                                                                     #
+#        1.) cron job: weekly                                                         #
+#            A.) gateway-1: private                                                   #
+#            B.) gateway-2: public                                                    #
+#                                                                                     #
+#        2.) Searches for XP machines via nmap and reports:                           #
+#            A.) Hostname (IP)                                                        #
+#            B.) MAC                                                                  #
+#            C.) OS                                                                   #
+#                                                                                     #
+#     To Do:                                                                          #
+#                                                                                     #
+#        1.) Import perl code for scanning available IPs:                             #
+#            A.) scan-public.pl                                                       #
+#            B.) scan-private.pl                                                      #
+#                                                                                     #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+#use strict;
+#use warnings;
+#use diagnostics;
+#use Data::Dumper::Simple;
+use Getopt::Std;
+use Nmap::Parser;
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#    Declare Vars                                                                       #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+our ( $zone, @zones, @newzones, $oldzone, @cc, $cc, $z );
+my $np = new Nmap::Parser;
+our %opt = ();
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Usage: Nmap XP devices                                                            #
+#                                                                                     #
+#   Options: -h   Help      displays help topic                                       #
+#            -a   All       displays full report including Servers                    #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+getopts( 'ah', \%opt );    # values in %opts{a}
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Print Help                                                                        #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+if ( $opt{h} ) {
+	print "\n  Usage:\n\tparse-xp-netsecs\tNmap XP devices\n\n"
+	  . "Options:\n"
+	  . "\t-h \tHelp\t\tdisplays help topic \n"
+	  . "\t-a \tAll\t\tdisplays full report including Servers \n\n";
+	exit;
+}
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Parse File                                                                            #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+my $infile = $ARGV[0];
+$np->parsefile($infile);
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Session Data                                                                          #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+my $si = $np->get_session();
+print "Windows XP Machines Online between " . $si->start_str() . " and " . $si->time_str() . "\n\n";
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Find XP Machines                                                                      #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+#for my $host ($np->all_hosts) {
+#        my $os = $host->os_sig;
+#
+#        if ($os->osgen eq "XP") {
+#            my $zone = ($host->hostname."\t"
+#                       .$host->ipv4_addr."\t"
+#                       .$host->mac_addr."\t"
+#                       .$os->name."\n");
+#            push (@zones, $zone);
+#        }
+#}
+
+for my $host ( $np->all_hosts ) {
+	my $os = $host->os_sig;
+
+	if ( $os->osgen eq "XP" ) {
+		if ( $opt{a} ) {
+			my $zone = ( $host->hostname . "\t" . $host->ipv4_addr . "\t" . $host->mac_addr . "\t" . $os->name . "\n" );
+			push( @zones, $zone );
+		}
+		else {
+			unless ( $os->name =~ /.*Server.*/ ) {
+				my $zone = ( $host->hostname . "\t" . $host->ipv4_addr . "\t" . $host->mac_addr . "\t" . $os->name . "\n" );
+				push( @zones, $zone );
+			}
+		}
+	}
+}
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Print Sorted File                                                                   #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+@newzones = sort { ( $a =~ /.*\.(.*\.uic\.edu) *./ )[0] cmp( $b =~ /.*\.(.*\.uic\.edu) *./ )[0] } @zones;
+
+&print_netsecs(\@newzones);
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Priming DB2 Access                                                                  #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+my %pbopt;
+use UIC::Paw ();
+BEGIN {
+%pbopt = (	DB2 => {
+		TBCREATOR => 'pb',
+		DATABASE  => 'ACCCDATA',
+		USER      => 'webpbrw',
+		PASSWD    => UIC::Paw::get('webpbrw@rabbit'),
+	});
+}
+use UIC::MQ::BasicClients;
+use PBUIC ( %pbopt );
+use UIC::PW ( %pbopt );
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Query Who To CC                                                                     #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+sub who_cc {
+	$z = shift;
+
+	my $ps = PersonSet->fill(
+		-LIAISON_TYPE   => 'NETSEC',
+		-ZONE_2_LIAISON => $z,
+	);
+
+	foreach my $p ( $ps->getPersistents ) {
+		push @$cc, $p->pnetid . '@uic.edu';
+	}
+	$cc = join( ';', @$cc );
+	return ($cc);
+}
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Print Netsecs                                                                        #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+sub print_netsecs {
+        $zones = shift;
+        $oldzone = undef;
+
+        foreach (@$zones) {
+		$zone = $1 if ( $_ =~ /.*\.(.*\.uic\.edu).*/ );
+		my $currzone = $zone;
+
+		print "\n\nZone: $zone" unless ( $oldzone eq $currzone );
+		print "\nNetsec: " . &who_cc($zone) unless ( $oldzone eq $currzone );
+
+		print "\n$&";    # all info
+
+		$oldzone = $currzone;
+	}
+	print "\n";
+}
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Exit Routine                                                                        #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+print "\n\n";
+exit;

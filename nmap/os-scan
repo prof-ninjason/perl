@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#    Jason C. Rochon                                                                    #
+#    Mar 28, 2014                                                                       #
+#                                                                                       #
+#    Notes:                                                                             #
+#                                                                                       #
+#        1.) *-subnets.pl                                                               #
+#        2.) *-xp-devices                                                               #
+#        3.) private-subnets.pl                                                         #
+#        4.) private-subnets.pl                                                         #
+#        5.) private-subnets.pl                                                         #
+#                                                                                       #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+use lib '/usr/local/openvpn-polyroute/lib';
+use OpenVPN::PolyRoute ();
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Get Routes                                                                          #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+sub get_subnets {
+    our ( $network, @nmap );
+    my $opr    = OpenVPN::PolyRoute->new();
+    my $nocsec = $opr->db;
+
+    for my $interface ( glob '/sys/class/net/eth1.*' ) {
+        my ($vlan) = $interface =~ m/(\d+)$/;
+        $network = $nocsec->resultset('Network')->find( { vlan => $vlan } );
+
+        next unless $network;
+
+        #       next if $network->ip =~ m/^10\./;
+        next
+            if $network->firewallContext
+            and $network->firewallContext->name =~ m/^(wism|voice)$/;
+
+        next unless ($network);
+
+        push( @nmap, $network->ip . "/" . $network->netmask . " " );
+    }
+    return ("@nmap");
+}
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   Execute Nmap on Routes                                                              #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+{
+    my $nmap = "nmap "
+       ."-T5 "
+#       ."--excludefile /mnt/global/nmap/nonwin.exclude "
+       ."--excludefile /mnt/global/nmap/whitelist.exclude "
+       ."--excludefile /mnt/global/nmap/printers.exclude "
+       ."-Pn -f -sS -O -sV -p0-9099,9101-65535 "
+       ."-oX /mnt/global/nmap/nmap-os-devices.xml "
+       ."-oN /mnt/global/nmap/nmap-os-devices.log "
+       ."131.193.68.0/24 131.193.69.0/24 131.193.168.0/24 "
+       . &get_subnets;
+    
+    exec($nmap);
+}

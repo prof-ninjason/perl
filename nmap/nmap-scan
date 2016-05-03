@@ -1,0 +1,6 @@
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+#   Only turned on at the beginning weeks of a vulnerability or OS fingerprinting   #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+00 08 * * 2 root /usr/local/bin/vuln-scan
+15 08 * * 2 root /usr/local/bin/os-scan

@@ -1,0 +1,18 @@
+#!/bin/bash
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   parse vulnerablity reports                        #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # #
+/usr/local/flowtools/nmap_parsers/parse-vuln-netsecs /mnt/global/nmap/nmap-vuln-devices.xml > /mnt/global/nmap/reports/nmap-vuln-devices.report
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   parse end of life/support reports                 #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # #
+/usr/local/flowtools/nmap_parsers/parse-os-netsecs -q XP /mnt/global/nmap/nmap-os-devices.xml > /mnt/global/nmap/reports/nmap-xp-devices.report
+/usr/local/flowtools/nmap_parsers/parse-os-netsecs -q 2003 /mnt/global/nmap/nmap-os-devices.xml > /mnt/global/nmap/reports/nmap-2003-devices.report
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#   parse and update the exclude files                #
+ # # # # # # # # # # # # # # # # # # # # # # # # # # #
+/usr/local/flowtools/nmap_parsers/find_nmap_printers.pl /mnt/global/nmap/*.xml | uniq >> /mnt/global/nmap/printers.exclude
+/usr/local/flowtools/nmap_parsers/find_nmap_nonwin.pl /mnt/global/nmap/nmap-os-devices.xml | uniq >> /mnt/global/nmap/nonwin.exclude

@@ -29,12 +29,14 @@ our @vulnports = qw( 80 443 );
 
 sub process_host {
   my ( $host, $vport ) = @_;
-  
-  print "\nHost: " . $host->hostname . "\tIP: " . $host->ipv4_addr;
-  
+
+  print "\n\n--------------------------------------------------------------------------"
+       ."------------------------------------------------------------------------------"
+       ."\nHost: " . $host->hostname . "\tIP: " . $host->ipv4_addr;
+
   my $name = $host->tcp_service($vport)->name;
   print "\nPort: $vport (" . $name . ")\t open";
-  
+
   my $banner = $host->tcp_service($vport)->scripts('banner-plus');
   if ( defined $banner->{output} ) {
     print "\nbanner: " . $banner->{output};
@@ -49,8 +51,8 @@ for my $host ( $np->all_hosts ) {
     }
   }
 }
- 
- 
+
+
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #   Exit Routine                                                                       #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
